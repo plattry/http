@@ -1,0 +1,35 @@
+{
+    "name": "plattry/http",
+    "description": "The plattry http package",
+    "keywords": [
+        "plattry",
+        "http"
+    ],
+    "type": "library",
+    "license": "GPL-3.0",
+    "autoload": {
+        "psr-4": {
+            "Plattry\\Http\\": "src/"
+        },
+        "exclude-from-classmap": [
+            "/test"
+        ]
+    },
+    "authors": [
+        {
+            "name": "Andrew Lee",
+            "email": "sixser@foxmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": "^8.0",
+        "plattry/ioc": "<1.0",
+        "plattry/network": "<1.0",
+        "plattry/utils": "<1.0",
+        "psr/http-message": "^1.0",
+        "psr/http-factory": "^1.0",
+        "psr/http-server-middleware": "^1.0",
+        "psr/http-server-handler": "^1.0"
+    }
+}
