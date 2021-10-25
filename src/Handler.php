@@ -71,10 +71,11 @@ class Handler implements RequestHandlerInterface
      */
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $middleware = next($this->middlewares);
-
+        $middleware = current($this->middlewares);
         if ($middleware === false)
             return $this->call($request);
+
+        next($this->middlewares);
 
         return $this->container->get($middleware)->process($request, $this);
     }
