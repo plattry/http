@@ -43,10 +43,9 @@ class Processor implements MiddlewareInterface
     {
         $response = $this->before($request);
 
-        if ($response instanceof ResponseInterface)
-            return $response;
-
-        $response = $handler->handle($request);
+        if (is_null($response)) {
+            $response = $handler->handle($request);
+        }
 
         return $this->after($request, $response);
     }
