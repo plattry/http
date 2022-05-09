@@ -39,7 +39,7 @@ class Processor implements MiddlewareInterface
     /**
      * @inheritDoc
      */
-    final public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $this->before($request);
 
