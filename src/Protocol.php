@@ -47,7 +47,7 @@ class Protocol extends Http
         $request->getBody()->write($rawBody);
         $request->getBody()->rewind();
 
-        parse_str(str_replace('; ', '&', $headers['Cookie'] ?? ''), $cookies);
+        parse_str(str_replace('; ', '&', $headers['cookie'] ?? ''), $cookies);
         $request->withCookieParams($cookies);
 
         parse_str((string)parse_url($target, PHP_URL_QUERY), $query);
@@ -109,17 +109,29 @@ class Protocol extends Http
         $headers = [];
         foreach (explode("\r\n", $otherLine) as $line) {
             [$key, $value] = explode(':', $line, 2);
-            $headers[trim($key)] = trim($value);
+            $headers[strtolower(trim($key))] = trim($value);
         }
 
         // Return data if no body.
-        $parsedBody = $files = [];
         if (empty($rawBody)) {
-            return [$method, $target, $version, $headers, $rawBody, $parsedBody, $files];
+            return [$method, $target, $version, $headers, $rawBody, [], []];
         }
 
         // Get parsed body data and uploaded files from raw body.
-        $contentType = $headers['Content-Type'] ?? '';
+        [$parsedBody, $files] = $this->parseBody($headers['content-type'] ?? '', $rawBody);
+
+        return [$method, $target, $version, $headers, $rawBody, $parsedBody, $files];
+    }
+
+    /**
+     * Parse Body by Content-Type.
+     * @param string $contentType
+     * @param string $rawBody
+     * @return array[]
+     */
+    protected function parseBody(string $contentType, string $rawBody): array
+    {
+        $parsedBody = $files = [];
         if (str_contains($contentType, 'json')) {
             $parsedBody = (array)json_decode($rawBody, true);
         } elseif (str_contains($contentType, 'form-data')) {
@@ -163,7 +175,7 @@ class Protocol extends Http
             parse_str($rawBody, $parsedBody);
         }
 
-        return [$method, $target, $version, $headers, $rawBody, $parsedBody, $files];
+        return [$parsedBody, $files];
     }
 
     /**
@@ -183,10 +195,10 @@ class Protocol extends Http
         $raw = sprintf("HTTP/%s %d %s\r\n", $version, $code, $phrase);
 
         // compile header
-        $headers["Content-Length"] = [strlen($body)];
+        $headers["content-length"] = [strlen($body)];
 
-        $cookies = $headers["Set-Cookie"] ?? [];
-        unset($headers["Set-Cookie"]);
+        $cookies = $headers["set-cookie"] ?? [];
+        unset($headers["set-cookie"]);
 
         ksort($headers);
         foreach ($headers as $name => $header) {
@@ -194,7 +206,7 @@ class Protocol extends Http
         }
 
         foreach ($cookies as $cookie) {
-            $raw .= sprintf("Set-Cookie: %s\r\n", $cookie);
+            $raw .= sprintf("set-cookie: %s\r\n", $cookie);
         }
 
         // compile body

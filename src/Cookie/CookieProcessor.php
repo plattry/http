@@ -36,7 +36,7 @@ class CookieProcessor extends Processor
     {
         $values = array_map(fn($cookieElement) => (string)$cookieElement, $this->cookie->getQueue());
         if (!empty($values))
-            $response->withAddedHeader('Set-Cookie', $values);
+            $response->withAddedHeader('set-cookie', $values);
 
         return parent::after($request, $response);
     }

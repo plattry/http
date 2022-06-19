@@ -73,7 +73,7 @@ class Message implements MessageInterface
      */
     public function hasHeader($name): bool
     {
-        return isset($this->headers[$name]);
+        return isset($this->headers[strtolower($name)]);
     }
 
     /**
@@ -81,7 +81,7 @@ class Message implements MessageInterface
      */
     public function getHeader($name): array
     {
-        return $this->headers[$name] ?? [];
+        return $this->headers[strtolower($name)] ?? [];
     }
 
     /**
@@ -89,9 +89,7 @@ class Message implements MessageInterface
      */
     public function getHeaderLine($name): string
     {
-        $values = $this->headers[$name] ?? [];
-
-        return implode(';', $values);
+        return implode(';', $this->headers[strtolower($name)] ?? []);
     }
 
     /**
@@ -114,6 +112,8 @@ class Message implements MessageInterface
      */
     public function withHeader($name, $value): static
     {
+        $name = strtolower($name);
+
         unset($this->headers[$name]);
 
         $this->withAddedHeader($name, $value);
@@ -126,8 +126,10 @@ class Message implements MessageInterface
      */
     public function withAddedHeader($name, $value): static
     {
+        $name = strtolower($name);
+
         if (is_string($value))
-            $value = "Set-Cookie" === $name ? [$value] : explode(";", $value);
+            $value = "set-cookie" === $name ? [$value] : explode(";", $value);
 
         (!is_array($value) || empty($value)) &&
         throw new InvalidArgumentException("Http header value must be string and string[].");
@@ -143,7 +145,7 @@ class Message implements MessageInterface
      */
     public function withoutHeader($name): static
     {
-        unset($this->headers[$name]);
+        unset($this->headers[strtolower($name)]);
 
         return $this;
     }
