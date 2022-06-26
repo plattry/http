@@ -5,7 +5,6 @@ declare(strict_types = 1);
 namespace Plattry\Http\Foundation;
 
 use Plattry\Http\Exception\InvalidArgumentException;
-use Plattry\Http\Exception\RuntimeException;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -65,14 +64,7 @@ class HttpFactory implements
      */
     public function createStream(string $content = ''): StreamInterface
     {
-        $tmpPath = tempnam(sys_get_temp_dir(), 'plattry_stream_');
-
-        $tmpPath === false &&
-        throw new RuntimeException("An error occurred while creating a new stream.");
-
-        file_put_contents($tmpPath, $content);
-
-        return new Stream(fopen($tmpPath, "a+"));
+        return new Stream($content);
     }
 
     /**
@@ -80,7 +72,7 @@ class HttpFactory implements
      */
     public function createStreamFromFile(string $filename, string $mode = 'r'): StreamInterface
     {
-        return new Stream(fopen($filename, $mode));
+        return new Stream(file_get_contents($filename));
     }
 
     /**
@@ -88,7 +80,7 @@ class HttpFactory implements
      */
     public function createStreamFromResource($resource): StreamInterface
     {
-        return new Stream($resource);
+        return new Stream(strval(stream_get_contents($resource)));
     }
 
     /**

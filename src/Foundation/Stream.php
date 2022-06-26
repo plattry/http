@@ -4,8 +4,6 @@ declare(strict_types = 1);
 
 namespace Plattry\Http\Foundation;
 
-use Plattry\Http\Exception\InvalidArgumentException;
-use Plattry\Http\Exception\RuntimeException;
 use Psr\Http\Message\StreamInterface;
 
 /**
@@ -15,29 +13,36 @@ use Psr\Http\Message\StreamInterface;
 class Stream implements StreamInterface
 {
     /**
-     * File descriptor
-     * @var resource
-     */
-    protected mixed $fd;
-
-    /**
-     * File path
+     * Content string
      * @var string
      */
-    protected string $path;
+    protected string $str = "";
+
+    /**
+     * Position equal to offset bytes
+     * @var int
+     */
+    protected int $ptr = 0;
+
+    /**
+     * Meta data
+     * @var array
+     */
+    protected array $meta = [
+        "timed_out" => false,
+        "blocked" => true,
+        "eof" => false,
+        "unread_bytes" => 0,
+        "seekable" => true,
+    ];
 
     /**
      * Stream constructor.
-     * @param mixed $fd
-     * @throws InvalidArgumentException
+     * @param string $content
      */
-    public function __construct(mixed $fd)
+    public function __construct(string $content = "")
     {
-        !is_resource($fd) &&
-        throw new InvalidArgumentException("Stream fd must be a valid resource.");
-
-        $this->fd = $fd;
-        $this->path = (string)$this->getMetadata("uri");
+        $this->str = $content;
     }
 
     /**
@@ -53,7 +58,8 @@ class Stream implements StreamInterface
      */
     public function close()
     {
-        fclose($this->fd);
+        $this->str = "";
+        $this->ptr = 0;
     }
 
     /**
@@ -61,7 +67,11 @@ class Stream implements StreamInterface
      */
     public function detach()
     {
-        return null;
+        $stream = new static($this->str);
+
+        $this->close();
+
+        return $stream;
     }
 
     /**
@@ -69,12 +79,7 @@ class Stream implements StreamInterface
      */
     public function getSize(): int|null
     {
-        $stat = fstat($this->fd);
-
-        if ($stat === false)
-            return null;
-
-        return $stat['size'] ?? null;
+        return strlen($this->str);
     }
 
     /**
@@ -82,12 +87,7 @@ class Stream implements StreamInterface
      */
     public function tell(): int
     {
-        $pos = ftell($this->fd);
-
-        $pos === false &&
-        throw new RuntimeException("An error occurred while getting the current position of the pointer.");
-
-        return $pos;
+        return $this->ptr;
     }
 
     /**
@@ -95,7 +95,7 @@ class Stream implements StreamInterface
      */
     public function eof(): bool
     {
-        return feof($this->fd);
+        return !isset($this->str[$this->ptr]);
     }
 
     /**
@@ -103,7 +103,7 @@ class Stream implements StreamInterface
      */
     public function isSeekable(): bool
     {
-        return (bool)fseek($this->fd, 0, SEEK_CUR);
+        return true;
     }
 
     /**
@@ -111,8 +111,16 @@ class Stream implements StreamInterface
      */
     public function seek($offset, $whence = SEEK_SET)
     {
-        fseek($this->fd, $offset, $whence) === -1 &&
-        throw new RuntimeException("An error occurred while seeking the pointer.");
+        $ptr = match ($whence) {
+            SEEK_SET => $offset,
+            SEEK_CUR => $this->ptr + $offset,
+            SEEK_END => strlen($this->str) + $offset
+        };
+
+        ($ptr < 0 || $ptr > strlen($this->str)) &&
+        throw new \RuntimeException("Out of range while seeking the pointer.");
+
+        $this->ptr = $ptr;
     }
 
     /**
@@ -120,8 +128,7 @@ class Stream implements StreamInterface
      */
     public function rewind()
     {
-        !rewind($this->fd) &&
-        throw new RuntimeException("An error occurred while rewinding the pointer.");
+        $this->ptr = 0;
     }
 
     /**
@@ -129,16 +136,20 @@ class Stream implements StreamInterface
      */
     public function isWritable(): bool
     {
-        return fwrite($this->fd, "") !== false;
+        return true;
     }
 
     /**
      * @inheritDoc
      */
-    public function write($string)
+    public function write($string): int
     {
-        fwrite($this->fd, $string) === false &&
-        throw new RuntimeException("An error occurred while writing data.");
+        $ptr = $this->ptr;
+        $this->ptr += strlen($string);
+
+        $this->str = substr($this->str, 0, $ptr) . $string;
+
+        return strlen($string);
     }
 
     /**
@@ -146,7 +157,7 @@ class Stream implements StreamInterface
      */
     public function isReadable(): bool
     {
-        return fread($this->fd, 0) !== false;
+        return true;
     }
 
     /**
@@ -154,12 +165,10 @@ class Stream implements StreamInterface
      */
     public function read($length): string
     {
-        $string = fread($this->fd, $length);
+        $ptr = $this->ptr;
+        $this->ptr = min($this->ptr + $length, strlen($this->str));
 
-        $string === false &&
-        throw new RuntimeException("An error occurred while writing data.");
-
-        return $string;
+        return substr($this->str, $ptr, $length);
     }
 
     /**
@@ -167,22 +176,10 @@ class Stream implements StreamInterface
      */
     public function getContents(): string
     {
-        $content = "";
-        rewind($this->fd);
+        $ptr = $this->ptr;
+        $this->ptr = strlen($this->str);
 
-        while (true) {
-            $string = fread($this->fd, 65535);
-
-            $string === false &&
-            throw new RuntimeException("An error occurred while getting file content.");
-
-            if ($string === "")
-                break;
-
-            $content .= $string;
-        }
-
-        return $content;
+        return substr($this->str, $ptr);
     }
 
     /**
@@ -190,21 +187,9 @@ class Stream implements StreamInterface
      */
     public function getMetadata($key = null): mixed
     {
-        $data = stream_get_meta_data($this->fd);
-
         if (is_null($key))
-            return $data;
+            return $this->meta;
 
-        return $data[$key] ?? null;
-    }
-
-    /**
-     * Stream destructor.
-     * @throws RuntimeException
-     */
-    public function __destruct()
-    {
-        file_exists($this->path) && !unlink($this->path) &&
-        throw new RuntimeException("An error occurred while unlinking $this->path.");
+        return $this->meta[$key] ?? null;
     }
 }
